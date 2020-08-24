@@ -13,8 +13,9 @@ exports.createUser = async (req, res, next) => {
   let email = req.body.email;
   let passwd = req.body.passwd;
   let nickname = req.body.nickname;
+  let birth = req.body.birth;
 
-  if (!email || !passwd || !nickname) {
+  if (!email || !passwd || !nickname || !birth) {
     res.status(400).json({ message: "파라미터 잘못" });
     return;
   }
@@ -25,8 +26,9 @@ exports.createUser = async (req, res, next) => {
 
   const hashedPasswd = await bcrypt.hash(passwd, 8);
 
-  let query = "insert into p_user (email, passwd, nickname) values (?,?,?)";
-  let data = [email, hashedPasswd, nickname];
+  let query =
+    "insert into p_user (email, passwd, nickname,birth) values (?,?,?,?)";
+  let data = [email, hashedPasswd, nickname, birth];
 
   let user_id;
 
@@ -38,7 +40,9 @@ exports.createUser = async (req, res, next) => {
     user_id = result.insertId;
   } catch (e) {
     if (e.errno == 1062) {
-      res.status(401).json({ success: false, error: 1 });
+      res
+        .status(401)
+        .json({ success: false, error: 1, message: "중복입니다." });
     }
     await conn.rollback();
     res.status(500).json({ success: false, error: e });
@@ -60,4 +64,62 @@ exports.createUser = async (req, res, next) => {
   await conn.commit();
   await conn.release();
   res.status(200).json({ success: true, token: token });
+};
+
+// @desc 로그인
+// @route POST /api/v1/users/login
+// @request email.passwd
+// @response success token
+
+exports.loginUser = async (req, res, next) => {
+  let email = req.body.email;
+  let passwd = req.body.passwd;
+
+  let query = "select * from p_user where email = ? ";
+  let data = [email];
+
+  let user_id;
+
+  try {
+    [rows] = await connection.query(query, data);
+    let hashedPasswd = rows[0].passwd;
+    user_id = rows[0].id;
+    const isMatch = await bcrypt.compare(passwd, hashedPasswd);
+    if (isMatch == false) {
+      res.status(401).json();
+      return;
+    }
+  } catch (e) {
+    res.status(500).json();
+    return;
+  }
+  const token = jwt.sign({ user_id: user_id }, process.env.ACCESS_TOKEN_SECRET);
+  query = "insert into p_token (user_id, token) values (?,?)";
+  data = [user_id, token];
+  try {
+    [result] = await connection.query(query, data);
+    res.status(200).json({ success: true, token: token });
+  } catch (e) {
+    res.status(500).json();
+  }
+};
+
+// @desc 로그아웃
+// @route DELETE /api/v1/users/logout
+// @request user_id , token
+// @response success
+
+exports.logout = async (req, res, next) => {
+  let user_id = req.user.id;
+  let token = req.user.token;
+
+  let query = "delete from p_token where user_id = ? and token = ?";
+  let data = [user_id, token];
+
+  try {
+    [result] = await connection.query(query, data);
+    res.status(200).json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e });
+  }
 };
