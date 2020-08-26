@@ -42,7 +42,11 @@ exports.createUser = async (req, res, next) => {
     if (e.errno == 1062) {
       res
         .status(401)
-        .json({ success: false, error: 1, message: "중복입니다." });
+        .json({
+          success: false,
+          error: 1,
+          message: "닉네임이나 아이디 중복을 확인해 주세요.",
+        });
     }
     await conn.rollback();
     res.status(500).json({ success: false, error: e });

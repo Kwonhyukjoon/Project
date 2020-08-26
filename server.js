@@ -5,6 +5,7 @@ dotenv.config({ path: "./config/config.env" });
 const path = require("path");
 const morgan = require("morgan");
 const users = require("./route/users");
+const board = require("./route/board");
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(morgan("combined"));
 
 app.use("/api/v1/users", users);
+app.use("/api/v1/board", board);
 
 const PORT = process.env.PORT || 3000;
 
